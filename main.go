@@ -61,7 +61,7 @@ func MsgExtract(client *rpcclient.Client, k, r int, filterTxs []string, keyE, ke
 	for _, txid := range filterTxs {
 		txhash, _ := chainhash.NewHashFromStr(txid)
 		_, aout := getTransAddr(client, txhash)
-		D, err := transaction.GetOpReturnFromTrans(client, txhash)
+		D, err := transaction.GetTxOpReturn(client, txhash)
 		if err != nil {
 			return "", err
 		}
@@ -110,7 +110,7 @@ func SpecTxScan(client *rpcclient.Client, k int, r int, keyL []byte) ([]string, 
 	for _, txid := range txids {
 		hash, _ := chainhash.NewHashFromStr(txid)
 		ain, aout := getTransAddr(client, hash)
-		D, err := transaction.GetOpReturnFromTrans(client, hash)
+		D, err := transaction.GetTxOpReturn(client, hash)
 		if err != nil {
 			continue
 		}

@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/btcsuite/btcd/btcjson"
@@ -10,18 +11,53 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"log"
 )
 
-// 提取交易的OP_RETURN脚本
-func GetOpReturnFromTrans(client *rpcclient.Client, txHash *chainhash.Hash) ([]byte, error) {
-	rawTransaction, err := client.GetRawTransaction(txHash)
-	if err != nil {
-		return nil, err
+// 提取交易的输出输出地址
+func GetTxAddr(client *rpcclient.Client, tx *btcjson.TxRawResult) (string, string) {
+	var ain, aout string
+	// 遍历交易输入，解析地址
+	for _, vin := range tx.Vin {
+		// 获取输入的交易输出索引信息
+		prevTxid := vin.Txid
+		// 输入交易为空则跳过（初始交易）
+		if prevTxid == "" {
+			return "", ""
+		}
+		voutIndex := vin.Vout
+		// 查询前一个交易的输出
+		hash, _ := chainhash.NewHashFromStr(prevTxid)
+		prevTx, err := client.GetRawTransactionVerbose(hash)
+		if err != nil {
+			log.Fatalf("Error fetching previous transaction: %v", err)
+		}
+		// 获取指定输出的地址
+		vout := prevTx.Vout[voutIndex]
+		address := vout.ScriptPubKey.Address
+		if address != "" {
+			ain = address
+			break
+		}
 	}
-	TxOut := rawTransaction.MsgTx().TxOut
+
+	for _, vout := range tx.Vout {
+		if vout.ScriptPubKey.Address != "" {
+			aout = vout.ScriptPubKey.Address
+			break
+		}
+	}
+
+	return ain, aout
+}
+
+// 提取交易的OP_RETURN脚本
+func GetTxOpReturn(tx *btcjson.TxRawResult) ([]byte, error) {
+	TxOut := tx.Vout
 	for _, out := range TxOut {
-		if out.PkScript[0] == txscript.OP_RETURN {
-			return out.PkScript, nil
+		script, _ := hex.DecodeString(out.ScriptPubKey.Hex)
+		if script[0] == txscript.OP_RETURN {
+			return script, nil
 		}
 	}
 	return nil, errors.New("transaction not have OP_RETURN")

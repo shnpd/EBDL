@@ -26,57 +26,53 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//message := Crypto.GenerateRandomContent(50000)
-	start := time.Now()
-	message := "1111111111111"
-	// 将message分为n块（每个交易的OP_RETURN最多可以保存80字节，但是保存的数据越大隐蔽性越差，因此选择与我们方案相同的32字节进行分块）
-	n := (len(message) + 31) / 32
-	var M []string
-	for i := 0; i < len(message); i += 32 {
-		if i+32 >= len(message) {
-			m := message[i:]
+	// 循环五次测试时间
+	for i := 0; i < 5; i++ {
+		//message := Crypto.GenerateRandomContent(50000)
+		start := time.Now()
+		message := "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+		// 将message分为n块（每个交易的OP_RETURN最多可以保存80字节，但是保存的数据越大隐蔽性越差，因此选择与我们方案相同的32字节进行分块）
+		n := (len(message) + 31) / 32
+		var M []string
+		for i := 0; i < len(message); i += 32 {
+			if i+32 >= len(message) {
+				m := message[i:]
+				M = append(M, m)
+				break
+			}
+			m := message[i : i+32]
 			M = append(M, m)
-			break
 		}
-		m := message[i : i+32]
-		M = append(M, m)
-	}
-	//fmt.Println(M)
-	// 消息分段
-	S := MsgSeg(n, M, preshare.KeyE)
-	// 特殊交易生成
-	//specTx := SpecTxGen(client, preshare.K, n, preshare.R, S, preshare.KeyL)
-	SpecTxGen(client, preshare.K, n, preshare.R, S, preshare.KeyL)
+		// 消息分段
+		S := MsgSeg(n, M, preshare.KeyE)
+		// 特殊交易生成
+		specTx := SpecTxGen(client, preshare.K, n, preshare.R, S, preshare.KeyL)
+		//SpecTxGen(client, preshare.K, n, preshare.R, S, preshare.KeyL)
+		if i == 0 {
+			fmt.Println("隐蔽交易数：", len(specTx))
+		}
+		duration := time.Since(start)
 
-	duration := time.Since(start)
-	fmt.Println(duration)
-	//fmt.Println(specTx)
+		start2 := time.Now()
+		for i := 0; i < len(specTx); i++ {
+			time.Sleep(50 * time.Millisecond)
+		}
+		duration2 := time.Since(start2)
+		fmt.Println(duration - duration2)
+
+	}
 }
 
 // SpecTxGen 在m前添加tag将tag||m嵌入OP_RETURN
 func SpecTxGen(client *rpcclient.Client, k, n, r int, S [][]byte, keyL []byte) []*chainhash.Hash {
 	var ain, aout string
-	//var scripts []string
-	aoutAddr, _ := client.GetNewAddress("default")
-	aout = aoutAddr.String()
-	_, err := transaction.EntireSendTrans(client, miningAddr, aout, 1, nil)
-	client.Generate(1)
-	time.Sleep(50 * time.Millisecond)
-
-	if err != nil {
-		fmt.Println(err)
-	}
 	var covertTrans []*chainhash.Hash
 	k2 := k - 1
 	lambda := int(math.Pow(2, float64(k)))
-	// 默认所有地址都使用挖矿地址
+	// 默认所有地址都使用挖矿地址	(将前一次的输出地址作为本次的输入地址，循环使用utxo，需要等待前一个交易确认，存在额外的时间开销)
+	ain = miningAddr
+	aout = miningAddr
 	for i := 0; i < n; i++ {
-		// 将前一次的输出地址作为本次的输入地址，循环使用utxo
-		ain = aout
-		// 生成下一个输出地址
-		aoutAddr, _ = client.GetNewAddress("default")
-		aout = aoutAddr.String()
-
 		// 计算标签
 		rou := xorStringWithInt(aout[:k2], r)
 		l := rou + lambda/2 + 1
@@ -96,18 +92,13 @@ func SpecTxGen(client *rpcclient.Client, k, n, r int, S [][]byte, keyL []byte) [
 		if err != nil {
 			fmt.Println(err)
 		}
-		client.Generate(1)
-		// 等待1s确保已经使用的utxo已经被记录，否则连续发送交易可能会使用同一个utxo
-		time.Sleep(50 * time.Millisecond)
 		if err != nil {
 			fmt.Println(err)
 		}
-		// 保存脚本文件用于隐蔽性分析
-		//script, err := transaction.GetOpReturnFromTrans(client, T2)
-		//scripts = append(scripts, hex.EncodeToString(script))
 		covertTrans = append(covertTrans, T2)
+		// 防止双花，等待交易确认，注意在最终计算时间时减去该部分
+		time.Sleep(50 * time.Millisecond)
 	}
-	//fileoperator.SaveSignature(scripts, "OPRETURN_EBDL.xlsx")
 	return covertTrans
 }
 

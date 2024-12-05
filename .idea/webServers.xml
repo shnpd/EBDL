@@ -5,7 +5,7 @@
       <webServer id="ddef45f2-4a51-4192-8e68-663dd172e49f" name="EBDL">
         <fileTransfer accessType="SFTP" host="10.9.0.246" port="22" sshConfigId="bdc492cd-0295-4267-9bed-62ae96a64583" sshConfig="root@10.9.0.246:22 password">
           <advancedOptions>
-            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>

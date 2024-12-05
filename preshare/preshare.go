@@ -1,3 +1,4 @@
+// 预共享的参数
 package preshare
 
 var (
